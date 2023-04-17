@@ -63,7 +63,7 @@ def testAllModel(X_train,y_train,n):
 
     for name,model in models:
         # cross validation en 10 fois
-        kfold = KFold(n_splits=10, random_state=seed, shuffle=True) #stratified kFold
+        kfold = KFold(n_splits=10, random_state=seed, shuffle=True)
 
         print ("Evaluation de ",name)
         start_time = time.time()
@@ -116,7 +116,8 @@ from sklearn.model_selection import GridSearchCV
 
 def testSVC(X_train,y_train):
 
-    pipeline=Pipeline([("tfidf", TfidfVectorizer()),
+    pipeline=Pipeline([("cleaner", TextNormalizer()),
+                       ("tfidf", TfidfVectorizer()),
                        ('svm', SVC())])
 
     # creation des différents paramètres à tester pour SVM
@@ -124,9 +125,11 @@ def testSVC(X_train,y_train):
     # pour le référencer il faut utiliser le nom utilisé, i.e. svm, puis deux caractères soulignés
     # et enfin le nom du paramètre
     parameters = {
-        'svm__C': [0.001, 0.01, 0.1, 1, 10],
-        'svm__gamma' : [0.001, 0.01, 0.1, 1],
-        'svm__kernel': ['linear','rbf','poly','sigmoid']}
+        'cleaner__removedigit': [True,False],
+        'cleaner__getlemmatisation': [True,False],
+        'tfidf__stop_words':['english',None],
+        'tfidf__lowercase': [True,False]
+    }
 
 
     score='accuracy'
@@ -160,23 +163,23 @@ def testSVC(X_train,y_train):
     print ("\nLes premiers résultats : \n",df_results.head())
 
 
-def ajustSVC(X_train, y_train,C,gamma,kernel):
+def ajustSVC(X_train, y_train,removedegit,getlem,stopword,lwc):
 
     nltk.download('omw-1.4')
 
-    pipeline=Pipeline([("cleaner", TextNormalizer(getlemmatisation=True,removedigit=True)),
+    pipeline=Pipeline([("cleaner", TextNormalizer()),
                        ("tfidf", TfidfVectorizer()),
                        ('svm', SVC())])
 
 
     parameters = {
-        'cleaner__removedigit': [True,False],
-        'cleaner__getlemmatisation': [True,False],
-        'tfidf__stop_words':['english',None],
-        'tfidf__lowercase': [True,False],
-        'svm__C': C,
-        'svm__gamma' : gamma,
-        'svm__kernel': kernel
+        'cleaner__removedigit': removedegit,
+        'cleaner__getlemmatisation': getlem,
+        'tfidf__stop_words': stopword,
+        'tfidf__lowercase': lwc,
+        'svm__C': [0.001, 0.01, 0.1, 1, 10],
+        'svm__gamma' : [0.001, 0.01, 0.1, 1],
+        'svm__kernel': ['linear','rbf','poly','sigmoid']
     }
 
     score='accuracy'
@@ -228,20 +231,10 @@ def testRFC(X_train,y_train):
 
 
     parameters = {
-        # Pour logisticRegression enlever les commentaires des 3 lignes suivantes :
-        #'lr__solver' : ['newton-cg', 'lbfgs', 'liblinear'],
-        #'lr__penalty' : ['l2'],
-        #'lr__C' : [100, 10, 1.0, 0.1, 0.01],
-
-        # Pour MulinomialNaiveBayes enlever les commentaires des 2 lignes suivantes :
-        #'mnb__alpha': np.linspace(0.5, 1.5, 6),
-        #'mnb__fit_prior': [True, False],
-
-        # pour RandomForestClassifier enlever les commentaires des 4 lignes suivantes :
-        'rfc__n_estimators': [500, 1200],
-        'rfc__max_depth': [25, 30],
-        'rfc__min_samples_split': [5, 10, 15],
-        'rfc__min_samples_leaf' : [1, 2],
+        'cleaner__removedigit':[True,False],
+        'cleaner__getlemmatisation':[True,False],
+        'tfidf__stop_words':['english',None],
+        'tfidf__lowercase': [True,False],
     }
 
 
@@ -275,7 +268,7 @@ def testRFC(X_train,y_train):
 
 
 
-def ajustRFC(X_train, y_train,estimators,depth,split,leaf):
+def ajustRFC(X_train, y_train,removedigit,getlem,stopword,lwc):
 
     pipeline=Pipeline([("cleaner", TextNormalizer()),
                        ("tfidf", TfidfVectorizer()),
@@ -283,14 +276,14 @@ def ajustRFC(X_train, y_train,estimators,depth,split,leaf):
 
 
     parameters = {
-        'cleaner__removedigit':[True,False],
-        'cleaner__getlemmatisation':[True,False],
-        'tfidf__stop_words':['english',None],
-        'tfidf__lowercase': [True,False],
-        'rfc__n_estimators': estimators,
-        'rfc__max_depth': depth,
-        'rfc__min_samples_split': split,
-        'rfc__min_samples_leaf' : leaf}
+        'cleaner__removedigit': removedigit,
+        'cleaner__getlemmatisation':getlem,
+        'tfidf__stop_words':stopword,
+        'tfidf__lowercase': lwc,
+        'rfc__n_estimators': [500, 1200],
+        'rfc__max_depth': [25, 30],
+        'rfc__min_samples_split': [5, 10, 15],
+        'rfc__min_samples_leaf' : [1, 2],}
 
     score='accuracy'
     grid_search = GridSearchCV(pipeline, parameters, n_jobs=-1,  verbose=1, scoring=score)
@@ -336,12 +329,10 @@ def testLR(X_train,y_train):
 
 
     parameters = {
-        # Pour logisticRegression enlever les commentaires des 3 lignes suivantes :
-        'lr__solver' : ['newton-cg', 'lbfgs', 'liblinear'],
-        'lr__penalty' : ['l2'],
-        'lr__C' : [100, 10, 1.0, 0.1, 0.01]
-
-
+        'cleaner__removedigit':[True,False],
+        'cleaner__getlemmatisation':[True,False],
+        'tfidf__stop_words':['english',None],
+        'tfidf__lowercase': [True,False]
     }
 
 
@@ -374,7 +365,7 @@ def testLR(X_train,y_train):
 
 
 
-def ajustLR(X_train, y_train,solver,penalty,C):
+def ajustLR(X_train, y_train,removedigit,getlem,stopword,lwc):
 
     pipeline=Pipeline([("cleaner", TextNormalizer()),
                        ("tfidf", TfidfVectorizer()),
@@ -382,13 +373,13 @@ def ajustLR(X_train, y_train,solver,penalty,C):
 
 
     parameters = {
-        'cleaner__removedigit':[True,False],
-        'cleaner__getlemmatisation':[True,False],
-        'tfidf__stop_words':['english',None],
-        'tfidf__lowercase': [True,False],
-        'lr__solver' : solver,
-        'lr__penalty' : penalty,
-        'lr__C' : C
+        'cleaner__removedigit': removedigit,
+        'cleaner__getlemmatisation':getlem,
+        'tfidf__stop_words':stopword,
+        'tfidf__lowercase': lwc,
+        'lr__solver' : ['newton-cg', 'lbfgs', 'liblinear'],
+        'lr__penalty' : ['l2'],
+        'lr__C' : [100, 10, 1.0, 0.1, 0.01]
     }
 
     score='accuracy'

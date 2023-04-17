@@ -164,6 +164,6 @@ def extractTopic(mySample):
 
     # # Affichage des sujets (ou des thèmes)
     for topic_idx, topic in enumerate(H):
-        mySample['topic'][topic_idx] = " ".join([vectorizer.get_feature_names_out()[i] for i in topic.argsort()[:-10 - 1:-1]])
+        mySample['topic'][topic_idx] = " ".join([vectorizer.get_feature_names_out()[i] for i in topic.argsort()[:-20 - 1:-1]])
 
     return mySample
