@@ -1,5 +1,5 @@
 import time
-
+import numpy as np
 import nltk
 import pandas as pd
 from nltk.corpus import stopwords
@@ -48,9 +48,7 @@ def testAllModel(X_train,y_train,n):
     names = []
 
     score = 'accuracy'
-    # Nous appliquons les pré-traitements sur X
-    # Nous appliquons les pré-traitements sur X
-
+    
     text_normalizer=TextNormalizer()
     # appliquer fit.transform pour réaliser les pré-traitements sur X
     X_cleaned=text_normalizer.fit_transform(X_train)
@@ -63,17 +61,12 @@ def testAllModel(X_train,y_train,n):
 
     for name,model in models:
         # cross validation en 10 fois
-        kfold = KFold(n_splits=10, random_state=seed, shuffle=True)
+        kfold = KFold(n_splits=10, random_state=seed, shuffle=True) #stratified kFold
 
         print ("Evaluation de ",name)
         start_time = time.time()
         # application de la classification
         cv_results = cross_val_score(model, features, y_train, cv=kfold, scoring=score)
-
-        # pour afficher les paramètres du modèle en cours et la taille du vecteur intermédiaire
-        # enlever le commentaire des deux lignes suivantes
-        #print ("paramètre du modèle ",model.get_params(),'\n')
-        #print ("taille du vecteur : ",(model.named_steps['tfidf_vectorizer'].fit_transform(X)).shape,'\n')
 
         thetime=time.time() - start_time
         result=Result(name,cv_results.mean(),cv_results.std(),thetime)
@@ -112,59 +105,11 @@ from sklearn.model_selection import GridSearchCV
 
 
 
-
-
-def testSVC(X_train,y_train):
-
-    pipeline=Pipeline([("tfidf", TfidfVectorizer()),
-                       ('svm', SVC())])
-
-    # creation des différents paramètres à tester pour SVM
-    # Attention dans le pipeline le nom pour le classifier SVM est : svm même si l'algorithme s'appelle SVC
-    # pour le référencer il faut utiliser le nom utilisé, i.e. svm, puis deux caractères soulignés
-    # et enfin le nom du paramètre
-    parameters = {
-        'svm__C': [0.001, 0.01, 0.1, 1, 10],
-        'svm__gamma' : [0.001, 0.01, 0.1, 1],
-        'svm__kernel': ['linear','rbf','poly','sigmoid']}
-
-
-    score='accuracy'
-
-    # Application de gridsearchcv, n_jobs=-1 permet de pouvoir utiliser plusieurs CPU s'ils sont disponibles
-    grid_search = GridSearchCV(pipeline, parameters, n_jobs=-1, verbose=1,scoring=score)
-
-    print("Application de gridsearch ...")
-    print("pipeline :", [name for name, _ in pipeline.steps])
-    print("parameters :")
-    print(parameters)
-    start_time = time.time()
-    grid_search.fit(X_train, y_train)
-    print("réalisé en  %0.3f s" % (time.time() - start_time))
-    print("Meilleur résultat : %0.3f" % grid_search.best_score_)
-
-    # autres mesures et matrice de confusion
-    # y_pred = grid_search.predict(X_test)
-    # MyshowAllScores(y_test,y_pred)
-
-
-    print("Ensemble des meilleurs paramètres :")
-    best_parameters = grid_search.best_estimator_.get_params()
-    for param_name in sorted(parameters.keys()):
-        print("\t%s: %r" % (param_name, best_parameters[param_name]))
-
-    # Affichage des premiers résultats du gridsearch
-    df_results=pd.concat([pd.DataFrame(grid_search.cv_results_["params"]),
-                          pd.DataFrame(grid_search.cv_results_["mean_test_score"],
-                                       columns=[score])],axis=1).sort_values(score,ascending=False)
-    print ("\nLes premiers résultats : \n",df_results.head())
-
-
-def ajustSVC(X_train, y_train,C,gamma,kernel):
+def testSVC(X_train, y_train,n,nomfich):
 
     nltk.download('omw-1.4')
 
-    pipeline=Pipeline([("cleaner", TextNormalizer(getlemmatisation=True,removedigit=True)),
+    pipeline=Pipeline([("cleaner", TextNormalizer()),
                        ("tfidf", TfidfVectorizer()),
                        ('svm', SVC())])
 
@@ -174,13 +119,13 @@ def ajustSVC(X_train, y_train,C,gamma,kernel):
         'cleaner__getlemmatisation': [True,False],
         'tfidf__stop_words':['english',None],
         'tfidf__lowercase': [True,False],
-        'svm__C': C,
-        'svm__gamma' : gamma,
-        'svm__kernel': kernel
+        'svm__C': [0.001, 0.01, 0.1, 1, 10],
+        'svm__gamma' : [0.001, 0.01, 0.1, 1],
+        'svm__kernel': ['linear','rbf','poly','sigmoid']
     }
 
     score='accuracy'
-    grid_search = GridSearchCV(pipeline, parameters, n_jobs=-1,  verbose=1, scoring=score)
+    grid_search = GridSearchCV(pipeline, parameters, n_jobs=-1,  verbose=1, scoring=score,cv=n)
 
     print("Application de gridsearch ...")
     print("pipeline :", [name for name, _ in pipeline.steps])
@@ -190,10 +135,6 @@ def ajustSVC(X_train, y_train,C,gamma,kernel):
     grid_search.fit(X_train, y_train)
     print("réalisé en  %0.3f s" % (time.time() - start_time))
     print("Meilleur résultat : %0.3f" % grid_search.best_score_)
-
-    # autres mesures et matrice de confusion
-    # y_pred = grid_search.predict(X_test)
-    # MyshowAllScores(y_test,y_pred)
 
     print("Ensemble des meilleurs paramètres :")
     best_parameters = grid_search.best_estimator_.get_params()
@@ -205,77 +146,14 @@ def ajustSVC(X_train, y_train,C,gamma,kernel):
                           pd.DataFrame(grid_search.cv_results_["mean_test_score"],
                                        columns=[score])],axis=1).sort_values(score,ascending=False)
     print ("\nLes premiers résultats : \n",df_results.head())
+    df_results.to_csv('./Data_parametrage/'+nomfich+'.csv', sep=',', index=False)
 
 
 
 
-def testRFC(X_train,y_train):
 
 
-    pipeline=Pipeline([("cleaner", TextNormalizer()),
-                       ("tfidf", TfidfVectorizer()),
-
-                       # pour LogisticRegression enlever le commentaire de la ligne suivante
-                       #("lr", LogisticRegression()),
-
-                       # pour MultinomialNB enlever le commentaire de la ligne suivante
-                       #("mnb", MultinomialNB()),
-
-                       # pour RandomForestClassifier enlever le commentaire de la ligne suivante
-                       ('rfc', RandomForestClassifier())
-                       ]
-                      )
-
-
-    parameters = {
-        # Pour logisticRegression enlever les commentaires des 3 lignes suivantes :
-        #'lr__solver' : ['newton-cg', 'lbfgs', 'liblinear'],
-        #'lr__penalty' : ['l2'],
-        #'lr__C' : [100, 10, 1.0, 0.1, 0.01],
-
-        # Pour MulinomialNaiveBayes enlever les commentaires des 2 lignes suivantes :
-        #'mnb__alpha': np.linspace(0.5, 1.5, 6),
-        #'mnb__fit_prior': [True, False],
-
-        # pour RandomForestClassifier enlever les commentaires des 4 lignes suivantes :
-        'rfc__n_estimators': [500, 1200],
-        'rfc__max_depth': [25, 30],
-        'rfc__min_samples_split': [5, 10, 15],
-        'rfc__min_samples_leaf' : [1, 2],
-    }
-
-
-    score='accuracy'
-    grid_search = GridSearchCV(pipeline, parameters, n_jobs=-1,  verbose=1,scoring=score)
-
-    print("Application de gridsearch ...")
-    print("pipeline :", [name for name, _ in pipeline.steps])
-    print("parameters :")
-    print(parameters)
-    start_time = time.time()
-    grid_search.fit(X_train, y_train)
-    print("réalisé en  %0.3f s" % (time.time() - start_time))
-    print("Meilleur résultat : %0.3f" % grid_search.best_score_)
-
-    # matrice de confusion
-    #y_pred = grid_search.predict(X_test)
-    #MyshowAllScores(y_test,y_pred)
-
-    print("Ensemble des meilleurs paramètres :")
-    best_parameters = grid_search.best_estimator_.get_params()
-    for param_name in sorted(parameters.keys()):
-        print("\t%s: %r" % (param_name, best_parameters[param_name]))
-
-    # Affichage des premiers résultats du gridsearch
-    df_results=pd.concat([pd.DataFrame(grid_search.cv_results_["params"]),
-                          pd.DataFrame(grid_search.cv_results_["mean_test_score"],
-                                       columns=[score])],axis=1).sort_values(score,ascending=False)
-    print ("\nLes premiers résultats : \n",df_results.head())
-
-
-
-
-def ajustRFC(X_train, y_train,estimators,depth,split,leaf):
+def testRFC(X_train, y_train,n,nomfich):
 
     pipeline=Pipeline([("cleaner", TextNormalizer()),
                        ("tfidf", TfidfVectorizer()),
@@ -287,13 +165,13 @@ def ajustRFC(X_train, y_train,estimators,depth,split,leaf):
         'cleaner__getlemmatisation':[True,False],
         'tfidf__stop_words':['english',None],
         'tfidf__lowercase': [True,False],
-        'rfc__n_estimators': estimators,
-        'rfc__max_depth': depth,
-        'rfc__min_samples_split': split,
-        'rfc__min_samples_leaf' : leaf}
+        'rfc__n_estimators': [500, 1200],
+        'rfc__max_depth': [25, 30],
+        'rfc__min_samples_split': [5, 10, 15],
+        'rfc__min_samples_leaf' : [1, 2]}
 
     score='accuracy'
-    grid_search = GridSearchCV(pipeline, parameters, n_jobs=-1,  verbose=1, scoring=score)
+    grid_search = GridSearchCV(pipeline, parameters, n_jobs=-1,  verbose=1, scoring=score,cv=n)
 
     print("Application de gridsearch ...")
     print("pipeline :", [name for name, _ in pipeline.steps])
@@ -303,10 +181,6 @@ def ajustRFC(X_train, y_train,estimators,depth,split,leaf):
     grid_search.fit(X_train, y_train)
     print("réalisé en  %0.3f s" % (time.time() - start_time))
     print("Meilleur résultat : %0.3f" % grid_search.best_score_)
-
-    # autres mesures et matrice de confusion
-    #y_pred = grid_search.predict(X_test)
-    #MyshowAllScores(y_test,y_pred)
 
     print("Ensemble des meilleurs paramètres :")
     best_parameters = grid_search.best_estimator_.get_params()
@@ -318,35 +192,123 @@ def ajustRFC(X_train, y_train,estimators,depth,split,leaf):
                           pd.DataFrame(grid_search.cv_results_["mean_test_score"],
                                        columns=[score])],axis=1).sort_values(score,ascending=False)
     print ("\nLes premiers résultats : \n",df_results.head())
+    df_results.to_csv('./Data_parametrage/'+nomfich+'.csv', sep=',', index=False)
+
+from sklearn.metrics import f1_score
+
+def testLR(X_train, y_train,n,nomfich):
+
+    pipeline=Pipeline([("cleaner", TextNormalizer()),
+                       ("tfidf", TfidfVectorizer()),
+                       ('lr', LogisticRegression())])
 
 
+    parameters = {
+        'cleaner__removedigit':[True,False],
+        'cleaner__getlemmatisation':[True,False],
+        'tfidf__stop_words':['english',None],
+        'tfidf__lowercase': [True,False],
+        'lr__solver' : ['newton-cg', 'lbfgs', 'liblinear'],
+        'lr__penalty' : ['l2'],
+        'lr__C' : [100, 10, 1.0, 0.1, 0.01]
+    }
 
-def testLR(X_train,y_train):
+    score='accuracy'
+    grid_search = GridSearchCV(pipeline, parameters, n_jobs=-1,  verbose=1, scoring=score,cv=n)
+
+    print("Application de gridsearch ...")
+    print("pipeline :", [name for name, _ in pipeline.steps])
+    print("parameters :")
+    print(parameters)
+    start_time = time.time()
+    grid_search.fit(X_train, y_train)
+    print("réalisé en  %0.3f s" % (time.time() - start_time))
+    print("Meilleur résultat : %0.3f" % grid_search.best_score_)
+
+    print("Ensemble des meilleurs paramètres :")
+    best_parameters = grid_search.best_estimator_.get_params()
+    for param_name in sorted(parameters.keys()):
+        print("\t%s: %r" % (param_name, best_parameters[param_name]))
+
+    # Affichage des premiers résultats du gridsearch
+    df_results=pd.concat([pd.DataFrame(grid_search.cv_results_["params"]),
+                          pd.DataFrame(grid_search.cv_results_["mean_test_score"],
+                                       columns=[score])],axis=1).sort_values(score,ascending=False)
+    
+
+
+    print ("\nLes premiers résultats : \n",df_results.head())
+    df_results.to_csv('./Data_parametrage/'+nomfich+'.csv', sep=',', index=False)
+
+
+def testMNB(X_train, y_train,n,nomfich):
+
+    pipeline=Pipeline([("cleaner", TextNormalizer()),
+                       ("tfidf", TfidfVectorizer()),
+                       ('mnb', MultinomialNB())])
+
+
+    parameters = {
+        'cleaner__removedigit':[True,False],
+        'cleaner__getlemmatisation':[True,False],
+        'tfidf__stop_words':['english',None],
+        'tfidf__lowercase': [True,False],
+        'mnb__alpha': np.linspace(0.5, 1.5, 6),
+        'mnb__fit_prior': [True, False],
+        'mnb__force_alpha':[True, False]
+    }
+
+    score='accuracy'
+    grid_search = GridSearchCV(pipeline, parameters, n_jobs=-1,  verbose=1, scoring=score,cv=n)
+
+    print("Application de gridsearch ...")
+    print("pipeline :", [name for name, _ in pipeline.steps])
+    print("parameters :")
+    print(parameters)
+    start_time = time.time()
+    grid_search.fit(X_train, y_train)
+    print("réalisé en  %0.3f s" % (time.time() - start_time))
+    print("Meilleur résultat : %0.3f" % grid_search.best_score_)
+
+    print("Ensemble des meilleurs paramètres :")
+    best_parameters = grid_search.best_estimator_.get_params()
+    for param_name in sorted(parameters.keys()):
+        print("\t%s: %r" % (param_name, best_parameters[param_name]))
+
+    # Affichage des premiers résultats du gridsearch
+    df_results=pd.concat([pd.DataFrame(grid_search.cv_results_["params"]),
+                          pd.DataFrame(grid_search.cv_results_["mean_test_score"],
+                                       columns=[score])],axis=1).sort_values(score,ascending=False)
+    print ("\nLes premiers résultats : \n",df_results.head())
+    df_results.to_csv('./Data_parametrage/'+nomfich+'.csv', sep=',', index=False)
+
+
+       
+def testKNeighborsClassifier(X_train,y_train,n,nomfich):
 
 
     pipeline=Pipeline([("cleaner", TextNormalizer()),
                        ("tfidf", TfidfVectorizer()),
-
-                       # pour LogisticRegression enlever le commentaire de la ligne suivante
-                       ("lr", LogisticRegression()),
-
-
+                       ("KNN", KNeighborsClassifier()),
                        ]
                       )
 
 
     parameters = {
-        # Pour logisticRegression enlever les commentaires des 3 lignes suivantes :
-        'lr__solver' : ['newton-cg', 'lbfgs', 'liblinear'],
-        'lr__penalty' : ['l2'],
-        'lr__C' : [100, 10, 1.0, 0.1, 0.01]
-
-
+        'cleaner__getstemmer':[True,False],
+        'cleaner__removedigit':[True,False],
+        'cleaner__getlemmatisation':[True,False],
+        'tfidf__stop_words':['english',None],
+        'tfidf__lowercase': [True,False],
+        'KNN__n_neighbors': list(range(1,15)),
+        'KNN__algorithm': ['auto', 'ball_tree', 'kd_tree', 'brute'],
+        'KNN__weights': ['uniform', 'distance'],
+        'KNN__metric': ['minkowski','euclidean','manhattan']
     }
 
 
     score='accuracy'
-    grid_search = GridSearchCV(pipeline, parameters, n_jobs=-1,  verbose=1,scoring=score)
+    grid_search = GridSearchCV(pipeline, parameters, n_jobs=-1,  verbose=1,scoring=score,cv=n)
 
     print("Application de gridsearch ...")
     print("pipeline :", [name for name, _ in pipeline.steps])
@@ -371,28 +333,33 @@ def testLR(X_train,y_train):
                           pd.DataFrame(grid_search.cv_results_["mean_test_score"],
                                        columns=[score])],axis=1).sort_values(score,ascending=False)
     print ("\nLes premiers résultats : \n",df_results.head())
+    df_results.to_csv('./Data_parametrage/'+nomfich+'.csv', sep=',', index=False)
 
-
-
-def ajustLR(X_train, y_train,solver,penalty,C):
+    
+def testCART(X_train,y_train,n,nomfich):
 
     pipeline=Pipeline([("cleaner", TextNormalizer()),
                        ("tfidf", TfidfVectorizer()),
-                       ('lr', LogisticRegression())])
+                       ("CART", DecisionTreeClassifier()),
+                       ]
+                      )
 
 
     parameters = {
+        'cleaner__getstemmer':[True,False],
         'cleaner__removedigit':[True,False],
         'cleaner__getlemmatisation':[True,False],
         'tfidf__stop_words':['english',None],
         'tfidf__lowercase': [True,False],
-        'lr__solver' : solver,
-        'lr__penalty' : penalty,
-        'lr__C' : C
+        'CART__max_depth': [10, 20, 30],
+        'CART__min_samples_split': [2, 5, 10],
+        'CART__min_samples_leaf': [1, 2, 4],
+        'CART__criterion': ['gini', 'entropy']
     }
 
+
     score='accuracy'
-    grid_search = GridSearchCV(pipeline, parameters, n_jobs=-1,  verbose=1, scoring=score)
+    grid_search = GridSearchCV(pipeline, parameters, n_jobs=-1,  verbose=1,scoring=score,cv=n)
 
     print("Application de gridsearch ...")
     print("pipeline :", [name for name, _ in pipeline.steps])
@@ -403,7 +370,7 @@ def ajustLR(X_train, y_train,solver,penalty,C):
     print("réalisé en  %0.3f s" % (time.time() - start_time))
     print("Meilleur résultat : %0.3f" % grid_search.best_score_)
 
-    # autres mesures et matrice de confusion
+    # matrice de confusion
     #y_pred = grid_search.predict(X_test)
     #MyshowAllScores(y_test,y_pred)
 
@@ -417,3 +384,7 @@ def ajustLR(X_train, y_train,solver,penalty,C):
                           pd.DataFrame(grid_search.cv_results_["mean_test_score"],
                                        columns=[score])],axis=1).sort_values(score,ascending=False)
     print ("\nLes premiers résultats : \n",df_results.head())
+    df_results.to_csv('./Data_parametrage/'+nomfich+'.csv', sep=',', index=False)
+
+
+

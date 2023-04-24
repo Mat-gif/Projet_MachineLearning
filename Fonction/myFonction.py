@@ -10,7 +10,7 @@ import string
 import nltk
 from nltk.stem import WordNetLemmatizer
 from nltk.stem import PorterStemmer
-import spacy
+# import spacy
 
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
@@ -19,7 +19,7 @@ nltk.download('wordnet')
 nltk.download('stopwords')
 nltk.download('punkt')
 stop_words = set(stopwords.words('english'))
-nlp = spacy.load('en_core_web_sm')
+# nlp = spacy.load('en_core_web_sm')
 
 import pandas as pd
 
