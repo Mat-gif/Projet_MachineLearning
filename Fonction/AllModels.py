@@ -117,6 +117,7 @@ def testSVC(X_train, y_train,n,nomfich):
     parameters = {
         'cleaner__removedigit': [True,False],
         'cleaner__getlemmatisation': [True,False],
+        'cleaner__getstemmer' : [True, False],
         'tfidf__stop_words':['english',None],
         'tfidf__lowercase': [True,False],
         'svm__C': [0.001, 0.01, 0.1, 1, 10],
